@@ -217,17 +217,22 @@ static void processTransmit(otInstance *aInstance)
 
     assert(sInstance == aInstance);
 
+    // fprintf(stderr, "%s 1\r\n", __func__);
     rval = read(sTunFd, packet, sizeof(packet));
     VerifyOrExit(rval > 0, error = OT_ERROR_FAILED);
 
+    // fprintf(stderr, "%s 2\r\n", __func__);
     message = otIp6NewMessage(aInstance, NULL);
     VerifyOrExit(message != NULL, error = OT_ERROR_NO_BUFS);
 
+    // fprintf(stderr, "%s 3\r\n", __func__);
     SuccessOrExit(error = otMessageAppend(message, packet, static_cast<uint16_t>(rval)));
 
+    // fprintf(stderr, "%s 4\r\n", __func__);
     error   = otIp6Send(aInstance, message);
     message = NULL;
 
+    // fprintf(stderr, "%s 5\r\n", __func__);
 exit:
     if (message != NULL)
     {
@@ -236,11 +241,13 @@ exit:
 
     if (error == OT_ERROR_NONE)
     {
-        otLogInfoPlat("%s: %s", __func__, otThreadErrorToString(error));
+        // fprintf(stderr, "%s 6\r\n", __func__);
+        otLogCritMac("%s: %s", __func__, otThreadErrorToString(error));
     }
     else
     {
-        otLogWarnPlat("%s: %s", __func__, otThreadErrorToString(error));
+        // fprintf(stderr, "%s 7 err=%s\r\n", __func__, otThreadErrorToString(error));
+        otLogCritMac("%s: %s", __func__, otThreadErrorToString(error));
     }
 }
 
@@ -398,13 +405,15 @@ void platformNetifInit(otInstance *aInstance)
 
     VerifyOrExit(ioctl(sTunFd, TUNSETIFF, static_cast<void *>(&ifr)) == 0,
                  otLogCritPlat("Unable to configure tun device %s", OPENTHREAD_POSIX_TUN_DEVICE));
-#if defined(ARPHRD_6LOWPAN)
-    VerifyOrExit(ioctl(sTunFd, TUNSETLINK, ARPHRD_6LOWPAN) == 0,
+    //#if defined(ARPHRD_6LOWPAN)
+    //    VerifyOrExit(ioctl(sTunFd, TUNSETLINK, ARPHRD_6LOWPAN) == 0,
+    //                 otLogCritPlat("Unable to set link type of tun device %s", OPENTHREAD_POSIX_TUN_DEVICE));
+    //#else
+    //    VerifyOrExit(ioctl(sTunFd, TUNSETLINK, ARPHRD_ETHER) == 0,
+    //                 otLogCritPlat("Unable to set link type of tun device %s", OPENTHREAD_POSIX_TUN_DEVICE));
+    //#endif
+    VerifyOrExit(ioctl(sTunFd, TUNSETLINK, ARPHRD_VOID) == 0,
                  otLogCritPlat("Unable to set link type of tun device %s", OPENTHREAD_POSIX_TUN_DEVICE));
-#else
-    VerifyOrExit(ioctl(sTunFd, TUNSETLINK, ARPHRD_ETHER) == 0,
-                 otLogCritPlat("Unable to set link type of tun device %s", OPENTHREAD_POSIX_TUN_DEVICE));
-#endif
 
     sTunIndex = if_nametoindex(ifr.ifr_name);
     VerifyOrExit(sTunIndex > 0);

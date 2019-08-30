@@ -53,9 +53,9 @@
 
 #include "common/code_utils.hpp"
 
-static uint32_t sPlatNetifIndex = 0;
-
-static const size_t kMaxUdpSize = 1280;
+static uint32_t     sPlatNetifIndex  = 0;
+int                 otUbusDiagnostic = 0;
+static const size_t kMaxUdpSize      = 1280;
 
 static void *FdToHandle(int aFd)
 {
@@ -69,12 +69,35 @@ static int FdFromHandle(void *aHandle)
 
 static bool IsLinkLocal(const struct in6_addr &aAddress)
 {
-    return aAddress.s6_addr[0] == 0xfe && aAddress.s6_addr[1] == 0x80;
+    return (aAddress.s6_addr[0] == 0xfe && aAddress.s6_addr[1] == 0x80) ||
+           (aAddress.s6_addr[0] == 0xff && aAddress.s6_addr[1] == 0x02);
 }
 
 static bool IsMulticast(const struct in6_addr &aAddress)
 {
     return aAddress.s6_addr[0] == 0xff;
+}
+
+char *strncpy_IFNAMSIZ(char *dst, const char *src)
+{
+#ifndef IFNAMSIZ
+    enum
+    {
+        IFNAMSIZ = 16
+    };
+#endif
+    return strncpy(dst, src, IFNAMSIZ);
+}
+
+int setsockopt_bindtodevice(int fd, const char *iface)
+{
+    int          r;
+    struct ifreq ifr;
+    strncpy_IFNAMSIZ(ifr.ifr_name, iface);
+    r = setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr));
+    if (r)
+        printf("can't bind to interface %s", iface);
+    return r;
 }
 
 static otError transmitPacket(int aFd, uint8_t *aPayload, uint16_t aLength, const otMessageInfo &aMessageInfo)
@@ -150,6 +173,7 @@ static otError transmitPacket(int aFd, uint8_t *aPayload, uint16_t aLength, cons
     msg.msg_controllen = controlLength;
 #endif
 
+    setsockopt_bindtodevice(aFd, "wpan0");
     rval = sendmsg(aFd, &msg, 0);
     VerifyOrExit(rval > 0, perror("sendmsg"));
 
@@ -223,6 +247,7 @@ otError otPlatUdpSocket(otUdpSocket *aUdpSocket)
     aUdpSocket->mHandle = FdToHandle(fd);
 
 exit:
+    fprintf(stderr, "socket handle=%p\r\n", aUdpSocket->mHandle);
     return error;
 }
 
@@ -245,6 +270,8 @@ otError otPlatUdpBind(otUdpSocket *aUdpSocket)
 {
     otError error = OT_ERROR_NONE;
     int     fd;
+
+    fprintf(stderr, "bind handle=%p port=%u\r\n", aUdpSocket->mHandle, aUdpSocket->mSockName.mPort);
 
     assert(sPlatNetifIndex != 0);
     assert(aUdpSocket->mHandle != NULL);

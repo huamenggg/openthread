@@ -1313,7 +1313,6 @@ otError RadioSpinel::Receive(uint8_t aChannel)
     mState = kStateReceive;
 
 exit:
-    assert(error == OT_ERROR_NONE);
     return error;
 }
 
