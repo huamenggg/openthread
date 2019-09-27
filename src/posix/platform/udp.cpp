@@ -79,6 +79,17 @@ static bool IsMulticast(const struct in6_addr &aAddress)
     return aAddress.s6_addr[0] == 0xff;
 }
 
+int SetSockOptBindToDevice(int fd, const char *iface)
+{
+    int          r;
+    struct ifreq ifr;
+    strncpy(ifr.ifr_name, iface, sizeof(ifr.ifr_name));
+    r = setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr));
+    if (r)
+        printf("can't bind to interface %s", iface);
+    return r;
+}
+
 static otError transmitPacket(int aFd, uint8_t *aPayload, uint16_t aLength, const otMessageInfo &aMessageInfo)
 {
     struct sockaddr_in6 peerAddr;
@@ -152,6 +163,8 @@ static otError transmitPacket(int aFd, uint8_t *aPayload, uint16_t aLength, cons
     msg.msg_controllen = controlLength;
 #endif
 
+    // TODO check if this is required
+    SetSockOptBindToDevice(aFd, "wpan0");
     rval = sendmsg(aFd, &msg, 0);
     VerifyOrExit(rval > 0, perror("sendmsg"));
 
